@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -13,16 +14,41 @@
     label { font-weight: bold; display: block; margin-bottom: 8px; color: #334155; }
     select, button { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; }
     
-    .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px; }
-    .student-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s; }
-    .student-card.selected { border-color: #ef4444; background: #fef2f2; }
-    .student-name { font-weight: bold; margin-bottom: 5px; color: #0f172a; }
-    .type-select { width: 100%; padding: 4px; font-size: 14px; border-radius: 4px; display: none; border: 1px solid #fca5a5; }
+    .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 10px; margin-top: 10px; }
+    
+    /* 學生卡片基礎樣式 */
+    .student-card { border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; background: #ffffff; cursor: pointer; transition: all 0.2s; }
+    .student-name { font-weight: bold; margin-bottom: 6px; color: #0f172a; font-size: 16px; }
+    .type-select { width: 100%; padding: 5px; font-size: 14px; border-radius: 6px; display: none; font-weight: bold; }
+
+    /* 各假別選取時的顏色樣式 */
+    .student-card.selected { border-width: 2px; }
     .student-card.selected .type-select { display: block; }
+
+    .student-card.type-曠課 { border-color: #dc2626; background: #fef2f2; }
+    .student-card.type-曠課 .type-select { border: 1px solid #dc2626; color: #dc2626; }
+
+    .student-card.type-病假 { border-color: #2563eb; background: #eff6ff; }
+    .student-card.type-病假 .type-select { border: 1px solid #2563eb; color: #2563eb; }
+
+    .student-card.type-事假 { border-color: #d97706; background: #fffbeb; }
+    .student-card.type-事假 .type-select { border: 1px solid #d97706; color: #d97706; }
+
+    .student-card.type-喪假 { border-color: #475569; background: #f8fafc; }
+    .student-card.type-喪假 .type-select { border: 1px solid #475569; color: #475569; }
+
+    .student-card.type-公假 { border-color: #7c3aed; background: #f5f3ff; }
+    .student-card.type-公假 .type-select { border: 1px solid #7c3aed; color: #7c3aed; }
+
+    .student-card.type-生理假 { border-color: #db2777; background: #fdf2f8; }
+    .student-card.type-生理假 .type-select { border: 1px solid #db2777; color: #db2777; }
+
+    .student-card.type-不可抗力假 { border-color: #0d9488; background: #f0fdf4; }
+    .student-card.type-不可抗力假 .type-select { border: 1px solid #0d9488; color: #0d9488; }
     
     .btn-submit { background: #2563eb; color: white; border: none; margin-top: 20px; font-weight: bold; cursor: pointer; font-size: 18px; }
     .btn-submit:disabled { background: #94a3b8; }
-    .loading-msg { text-align: center; color: #64748b; padding: 20px 0; }
+    .loading-msg { text-align: center; color: #64748b; padding: 20px 0; grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -48,28 +74,19 @@
 </div>
 
 <script>
-  // ⚠️ 請務必確認這裡已替換為你的 GAS 部署網址 ⚠️
+  // ⚠️ 請替換為你的 GAS 部署網址 ⚠️
   const GAS_URL = "https://script.google.com/macros/s/AKfycbyEy9Ju1JMJoBWC4PbJ1rT9ODeNdpvySF_Gqh0CGvkuEOMm9fpUAXqOibLNnq7NhWl7/exec";
 
-  // 7 大假別選單
   const LEAVE_TYPES = ["曠課", "病假", "事假", "喪假", "公假", "生理假", "不可抗力假"];
   let allStudentsData = {};
 
-  // 使用 JSONP 載入學生名單
   function loadStudentData() {
     const script = document.createElement('script');
     script.src = `${GAS_URL}?action=getStudents&callback=handleStudentData&_=${new Date().getTime()}`;
-    script.onerror = function() {
-      document.getElementById('studentContainer').innerHTML = '<div class="loading-msg" style="color:red;">網路連線失敗，請檢查 GAS 網址。</div>';
-    };
     document.body.appendChild(script);
   }
 
-  // 接收學生名單 Callback（強化容錯版）
   window.handleStudentData = function(response) {
-    console.log("收到 GAS 資料:", response);
-
-    // 相容不同層級的資料結構
     const studentsObj = response.students || response.data || response;
 
     if (studentsObj && Object.keys(studentsObj).length > 0) {
@@ -77,29 +94,27 @@
       const classSelect = document.getElementById('classSelect');
       classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
 
-      let classCount = 0;
       Object.keys(allStudentsData).forEach(className => {
-        // 排除非班級 key（如 status, date 等）
         if (Array.isArray(allStudentsData[className])) {
           const option = document.createElement('option');
           option.value = className;
           option.innerText = `${className} 班`;
           classSelect.appendChild(option);
-          classCount++;
         }
       });
 
-      if (classCount > 0) {
-        document.getElementById('studentContainer').innerHTML = '<div class="loading-msg">連線成功！請從上方選單【選擇班級】</div>';
-      } else {
-        document.getElementById('studentContainer').innerHTML = '<div class="loading-msg" style="color:red;">抓取成功，但未解析出班級陣列。請確認試算表的 A 欄（班級）是否有填寫。</div>';
-      }
-    } else {
-      document.getElementById('studentContainer').innerHTML = '<div class="loading-msg" style="color:red;">連線成功，但讀取的學生名單為空。</div>';
+      document.getElementById('studentContainer').innerHTML = '<div class="loading-msg">請從上方選單【選擇班級】</div>';
     }
   };
 
-  // 渲染班級學生
+  function updateCardColor(card, type) {
+    // 移除舊的假別 class
+    LEAVE_TYPES.forEach(t => card.classList.remove(`type-${t}`));
+    if (card.classList.contains('selected')) {
+      card.classList.add(`type-${type}`);
+    }
+  }
+
   function renderStudents() {
     const className = document.getElementById('classSelect').value;
     const container = document.getElementById('studentContainer');
@@ -126,15 +141,23 @@
         </select>
       `;
 
+      const selectEl = card.querySelector('.type-select');
+
+      // 點擊卡片切換選取狀態
       card.addEventListener('click', function() {
         this.classList.toggle('selected');
+        updateCardColor(this, selectEl.value);
+      });
+
+      // 切換假別時即時變更色彩
+      selectEl.addEventListener('change', function() {
+        updateCardColor(card, this.value);
       });
 
       container.appendChild(card);
     });
   }
 
-  // 送出點名資料
   async function submitData() {
     const className = document.getElementById('classSelect').value;
     if (!className) {
@@ -168,7 +191,7 @@
       });
 
       alert("點名紀錄送出成功！");
-      renderStudents(); // 重設卡片
+      renderStudents();
     } catch (err) {
       alert("送出失敗：" + err.message);
     } finally {
@@ -177,7 +200,6 @@
     }
   }
 
-  // 頁面載入時執行
   loadStudentData();
 </script>
 
