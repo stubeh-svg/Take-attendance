@@ -83,7 +83,13 @@ HTML
     }
 
     function fetchRecords() {
+      // 移除舊的 script 標籤避免累積
+      const oldScript = document.getElementById('jsonp-dashboard-script');
+      if (oldScript) oldScript.remove();
+
+      // 動態建立新的 script 標籤
       const script = document.createElement('script');
+      script.id = 'jsonp-dashboard-script';
       script.src = GAS_URL + "?action=getDashboard&callback=handleDashboardData&t=" + new Date().getTime();
       document.body.appendChild(script);
     }
