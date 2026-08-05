@@ -1,0 +1,188 @@
+HTML
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新北市新泰國中學生缺曠管制表</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, sans-serif; }
+    body { background-color: #f1f5f9; margin: 0; padding: 15px; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #1e3a8a; margin-top: 0; font-size: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    .form-group { margin-bottom: 15px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; color: #334155; }
+    select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 16px; }
+    .type-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+    .type-btn { padding: 10px 4px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-size: 13px; }
+    .type-btn.active { background: #3b82f6; color: white; border-color: #1d4ed8; box-shadow: 0 2px 4px rgba(59,130,246,0.3); }
+    .student-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+    .btn-no { padding: 10px 4px; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; line-height: 1.3; position: relative; }
+    .btn-no.selected { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+    .btn-no .tag { display: block; font-size: 11px; background: #ef4444; color: white; border-radius: 4px; padding: 1px 3px; margin-top: 2px; }
+    .submit-btn { width: 100%; padding: 14px; background: #22c55e; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+    .submit-btn:disabled { background: #94a3b8; }
+    .loading-msg { text-align: center; color: #64748b; font-size: 14px; }
+    .hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>新北市新泰國中學生缺曠管制表</h2>
+    <div id="loading" class="loading-msg">正在連線雲端資料庫，載入學生名單中...</div>
+
+    <div id="mainForm" style="display:none;">
+      <div class="form-group">
+        <label>1. 選擇班級：</label>
+        <select id="classSelect" onchange="renderStudents()">
+          <option value="">-- 請選擇班級 --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>2. 先點選假別（目前選取：<span id="currentTypeLabel" style="color:#ef4444; font-weight:bold;">曠課</span>）：</label>
+        <div class="type-selector">
+          <div class="type-btn active" onclick="setLeaveType('曠課', this)">曠課</div>
+          <div class="type-btn" onclick="setLeaveType('病假', this)">病假</div>
+          <div class="type-btn" onclick="setLeaveType('事假', this)">事假</div>
+          <div class="type-btn" onclick="setLeaveType('喪假', this)">喪假</div>
+          <div class="type-btn" onclick="setLeaveType('公假', this)">公假</div>
+          <div class="type-btn" onclick="setLeaveType('生理假', this)">生理假</div>
+          <div class="type-btn" onclick="setLeaveType('不可抗力假', this)">不可抗力假</div>
+        </div>
+        <div class="hint">說明：點擊假別後再去點學生；若要改假別，切換假別後再點該學生即可。</div>
+      </div>
+
+      <div class="form-group">
+        <label>3. 點選缺席學生（再點一次可取消）：</label>
+        <div class="student-grid" id="studentGrid">
+          <div style="color:#94a3b8; grid-column: 1/-1;">請先選擇班級</div>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="subBtn" onclick="submitData()">完成並送出點名</button>
+    </div>
+  </div>
+
+  <script>
+    // 請填寫您原本的 GAS 網址（程式會自動加上 callback 避開 CORS）
+    const GAS_URL = "https://script.google.com/a/macros/htjh.ntpc.edu.tw/s/AKfycbwn-zpgNu6t8usbGsRjiDuXaqorUeIxV44EvuMB5sXqcnbfsvLEZasFSVc7ZC14NWMOAQ/exec";
+    
+    let allStudents = [];
+    let selectedAbsentees = {}; 
+    let currentType = '曠課';
+
+    // JSONP 回調處理函式
+    function handleData(data) {
+      if (!data.students || data.students.length === 0) {
+        document.getElementById('loading').innerText = "連線成功，但未讀取到學生名單，請確認試算表『學生名單』頁籤名稱與內容。";
+        return;
+      }
+      allStudents = data.students;
+      initClassSelect();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('mainForm').style.display = 'block';
+    }
+
+    window.onload = function() {
+      // 建立動態 Script 標籤避開本機跨網域限制
+      const script = document.createElement('script');
+      script.src = GAS_URL + "?callback=handleData";
+      script.onerror = function() {
+        document.getElementById('loading').innerText = "載入失敗，請確認 GAS 部署權限是否設為『任何人』。";
+      };
+      document.body.appendChild(script);
+    };
+
+    function initClassSelect() {
+      const select = document.getElementById('classSelect');
+      select.innerHTML = '<option value="">-- 請選擇班級 --</option>';
+      const classes = [...new Set(allStudents.map(s => s.className))];
+      classes.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.innerText = c + '班';
+        select.appendChild(opt);
+      });
+    }
+
+    function renderStudents() {
+      const className = document.getElementById('classSelect').value;
+      const grid = document.getElementById('studentGrid');
+      grid.innerHTML = '';
+      selectedAbsentees = {}; 
+
+      if (!className) {
+        grid.innerHTML = '<div style="color:#94a3b8; grid-column: 1/-1;">請先選擇班級</div>';
+        return;
+      }
+
+      const classStudents = allStudents.filter(s => s.className === className);
+      classStudents.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-no';
+        btn.id = `btn-student-${s.no}`;
+        btn.innerHTML = `<b>${s.no}號</b><br><small>${s.name}</small><span class="tag-area"></span>`;
+        btn.onclick = () => toggleStudent(s.no, s.name, btn);
+        grid.appendChild(btn);
+      });
+    }
+
+    function setLeaveType(type, element) {
+      currentType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+      element.classList.add('active');
+      const label = document.getElementById('currentTypeLabel');
+      label.innerText = type;
+      label.style.color = (type === '曠課') ? '#ef4444' : '#3b82f6';
+    }
+
+    function toggleStudent(no, name, btn) {
+      const tagArea = btn.querySelector('.tag-area');
+      if (selectedAbsentees[no] && selectedAbsentees[no].type === currentType) {
+        delete selectedAbsentees[no];
+        btn.classList.remove('selected');
+        tagArea.innerHTML = '';
+      } else {
+        selectedAbsentees[no] = { name: name, type: currentType };
+        btn.classList.add('selected');
+        tagArea.innerHTML = `<span class="tag">${currentType}</span>`;
+      }
+    }
+
+    function submitData() {
+      const className = document.getElementById('classSelect').value;
+      if (!className) {
+        alert('請先選擇班級！');
+        return;
+      }
+
+      const btn = document.getElementById('subBtn');
+      btn.disabled = true;
+      btn.innerText = "資料同步中...";
+
+      const absList = Object.keys(selectedAbsentees).map(no => ({
+        no: no,
+        name: selectedAbsentees[no].name,
+        type: selectedAbsentees[no].type
+      }));
+
+      const payload = { className: className, absentees: absList, reporter: "風紀股長" };
+
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        alert('點名完成！資料已成功同步至雲端 Excel。');
+        location.reload();
+      }).catch(err => {
+        alert('送出失敗，請檢查網路。');
+        btn.disabled = false;
+        btn.innerText = "完成並送出點名";
+      });
+    }
+  </script>
+</body>
+</html>
