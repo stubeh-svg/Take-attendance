@@ -4,22 +4,23 @@ HTML
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>即時學生缺曠統計看板</title>
+  <title>全校即時缺曠統計看板</title>
   <style>
     * { box-sizing: border-box; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
-    body { background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; overflow: hidden; }
+    body { background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
     .header { text-align: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px; position: relative; }
     .header h1 { margin: 0; font-size: 36px; color: #38bdf8; letter-spacing: 2px; }
     .header .time { position: absolute; right: 10px; top: 10px; font-size: 18px; color: #94a3b8; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; height: calc(100vh - 120px); overflow-y: auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
     .card { background: #1e293b; border-radius: 12px; padding: 15px; border: 1px solid #334155; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .card-header { font-size: 22px; font-weight: bold; color: #f1f5f9; border-bottom: 1px solid #475569; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .card-header { font-size: 22px; font-weight: bold; color: #f1f5f9; border-bottom: 1px solid #475569; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     .tag-count { background: #ef4444; color: white; padding: 2px 10px; border-radius: 20px; font-size: 16px; }
     .absent-list { font-size: 18px; line-height: 1.6; }
     .absent-item { display: flex; justify-content: space-between; background: #334155; margin-bottom: 6px; padding: 6px 12px; border-radius: 6px; }
-    .leave-type { background: #3b82f6; color: white; padding: 1px 6px; border-radius: 4px; font-size: 14px; }
+    .leave-type { background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 14px; }
     .leave-type.曠課 { background: #ef4444; }
-    .no-data { text-align: center; color: #64748b; font-size: 24px; grid-column: 1/-1; margin-top: 100px; }
+    .no-data { text-align: center; color: #94a3b8; font-size: 24px; grid-column: 1/-1; margin-top: 80px; line-height: 1.8; }
+    .status-tag { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 14px; margin-top: 10px; background: #334155; }
   </style>
 </head>
 <body>
@@ -29,11 +30,15 @@ HTML
   </div>
 
   <div class="grid" id="dashboardGrid">
-    <div class="no-data">資料載入中...</div>
+    <div class="no-data">
+      ⏳ 正在連線至 Google 試算表抓取最新資料...
+      <br>
+      <span class="status-tag" id="statusTag">狀態：連線中</span>
+    </div>
   </div>
 
   <script>
-    // ⚠️ 請填入您最新的 GAS 網址 ⚠️
+    // ⚠️ 請確保下方雙引號內貼的是您正確的 GAS 網址 (結尾必須是 /exec) ⚠️
     const GAS_URL = "https://script.google.com/a/macros/htjh.ntpc.edu.tw/s/AKfycbwn-zpgNu6t8usbGsRjiDuXaqorUeIxV44EvuMB5sXqcnbfsvLEZasFSVc7ZC14NWMOAQ/exec";
 
     function updateClock() {
@@ -43,22 +48,40 @@ HTML
     setInterval(updateClock, 1000);
     updateClock();
 
-    function handleDashboardData(data) {
+    // 全域接收函式 (同時相容兩種 Callback 名稱)
+    window.handleDashboardData = window.handleData = function(data) {
+      console.log("收到來自 GAS 的資料：", data);
       const grid = document.getElementById('dashboardGrid');
-      grid.innerHTML = '';
-
-      if (!data.todayRecords || data.todayRecords.length === 0) {
-        grid.innerHTML = '<div class="no-data">今日尚無缺曠登記紀錄</div>';
+      
+      if (!data) {
+        grid.innerHTML = '<div class="no-data">❌ 讀取失敗：回傳資料為空</div>';
         return;
       }
 
+      const records = data.todayRecords || data.records || [];
+
+      if (records.length === 0) {
+        grid.innerHTML = `
+          <div class="no-data">
+            ✅ 今日尚無任何學生缺曠登記紀錄
+            <br>
+            <span class="status-tag" style="background:#10b981; color:white;">最後更新時間：${new Date().toLocaleTimeString('zh-TW')}</span>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = ''; // 清空載入中提示
+
       // 按班級分組
       const classGroups = {};
-      data.todayRecords.forEach(r => {
-        if (!classGroups[r.className]) classGroups[r.className] = [];
-        classGroups[r.className].push(r);
+      records.forEach(r => {
+        const cName = r.className || r.班級 || "未指定班級";
+        if (!classGroups[cName]) classGroups[cName] = [];
+        classGroups[cName].push(r);
       });
 
+      // 繪製班級卡片
       Object.keys(classGroups).forEach(className => {
         const list = classGroups[className];
         const card = document.createElement('div');
@@ -66,38 +89,52 @@ HTML
         
         let listHtml = list.map(item => `
           <div class="absent-item">
-            <span><b>${item.no}</b> ${item.name}</span>
+            <span><b>${item.no}</b> ${item.name || ''}</span>
             <span class="leave-type ${item.type}">${item.type}</span>
           </div>
         `).join('');
 
         card.innerHTML = `
           <div class="card-header">
-            <span>${className}班</span>
+            <span>${className} 班</span>
             <span class="tag-count">${list.length} 人</span>
           </div>
           <div class="absent-list">${listHtml}</div>
         `;
         grid.appendChild(card);
       });
-    }
+    };
 
     function fetchRecords() {
-      // 移除舊的 script 標籤避免累積
-      const oldScript = document.getElementById('jsonp-dashboard-script');
+      const statusTag = document.getElementById('statusTag');
+      if (statusTag) statusTag.innerText = "狀態：發送請求中 (" + new Date().toLocaleTimeString('zh-TW') + ")";
+
+      // 移除舊 script 防止累積
+      const oldScript = document.getElementById('jsonp-script');
       if (oldScript) oldScript.remove();
 
-      // 動態建立新的 script 標籤
+      // 建立動態 JSONP 請求
       const script = document.createElement('script');
-      script.id = 'jsonp-dashboard-script';
-      script.src = GAS_URL + "?action=getDashboard&callback=handleDashboardData&t=" + new Date().getTime();
+      script.id = 'jsonp-script';
+      // 同時帶入 callback 參數與時間戳記避免快取
+      script.src = `${GAS_URL}?action=getDashboard&callback=handleDashboardData&t=${new Date().getTime()}`;
+      
+      script.onerror = function() {
+        const grid = document.getElementById('dashboardGrid');
+        grid.innerHTML = `
+          <div class="no-data" style="color:#f87171;">
+            ❌ 連線失敗！請檢查 dashboard.html 內的 GAS_URL 網址是否正確。
+          </div>
+        `;
+      };
+
       document.body.appendChild(script);
     }
 
-    // 頁面載入時讀取，並每 10 秒自動刷新一次
+    // 頁面載入時執行，每 10 秒自動重新整理一次
     window.onload = function() {
       fetchRecords();
-      setInterval(fetchRecords, 10000); 
+      setInterval(fetchRecords, 10000);
     };
   </script>
 </body>
