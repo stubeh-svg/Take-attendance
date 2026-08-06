@@ -3,119 +3,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全校即時點名統計看板</title>
+  <title>全校缺曠即時動態看板 (年級分頁輪播版)</title>
   <style>
-    * { box-sizing: border-box; }
-    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
-    h1 { margin: 0; font-size: 2rem; color: #38bdf8; }
-    .meta-info { font-size: 1rem; color: #94a3b8; }
-    .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .class-card { background: #1e293b; border-radius: 12px; padding: 15px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
-    .class-title { font-size: 1.4rem; font-weight: bold; border-bottom: 1px solid #475569; padding-bottom: 8px; margin-bottom: 12px; color: #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-    .badge-all { background: #10b981; color: white; font-size: 0.85rem; padding: 3px 8px; border-radius: 12px; }
-    .badge-absent { background: #ef4444; color: white; font-size: 0.85rem; padding: 3px 8px; border-radius: 12px; }
-    .student-list { list-style: none; padding: 0; margin: 0; }
-    .student-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed #334155; font-size: 1.1rem; }
-    
-    /* 看板假別彩色標籤 */
-    .type-tag { padding: 3px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; }
-    .tag-曠課 { background: #ef4444; color: white; }
-    .tag-病假 { background: #3b82f6; color: white; }
-    .tag-事假 { background: #f59e0b; color: white; }
-    .tag-喪假 { background: #64748b; color: white; }
-    .tag-公假 { background: #8b5cf6; color: white; }
-    .tag-生理假 { background: #ec4899; color: white; }
-    .tag-不可抗力假 { background: #14b8a6; color: white; }
+    * { box-sizing: border-box; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    body {
+      background-color: #0f172a; /* 深藍黑色科技感背景 */
+      color: #ffffff;
+      margin: 0;
+      padding: 20px;
+      overflow: hidden; /* 防止出現滾動條 */
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-    .all-present { color: #10b981; font-weight: bold; text-align: center; padding: 15px 0; font-size: 1.1rem; }
-    .loading-full { text-align: center; font-size: 1.5rem; color: #94a3b8; grid-column: 1 / -1; padding: 50px 0; }
+    /* 頂部標題與狀態列 */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      padding: 15px 25px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .title { font-size: 28px; font-weight: bold; letter-spacing: 2px; color: #38bdf8; }
+    .page-info { font-size: 22px; font-weight: bold; background: #0284c7; padding: 6px 20px; border-radius: 20px; color: #ffffff; }
+    .clock { font-size: 22px; font-weight: bold; color: #94a3b8; }
+
+    /* 班級網格佈局 */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
+      flex-grow: 1;
+      align-content: start;
+    }
+
+    /* 班級卡片 */
+    .class-card {
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 2px solid #334155;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+
+    .class-title {
+      font-size: 20px;
+      font-weight: bold;
+      border-bottom: 2px solid #475569;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    /* 全班到齊顯示綠色勾勾 */
+    .all-present {
+      color: #4ade80;
+      font-size: 17px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    /* 缺曠學生列表 Container */
+    .absent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* 單位學生整條：名字純文字、只有假別標籤有背景色彩 */
+    .student-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      font-weight: bold;
+      color: #e2e8f0; /* 姓名純文字顏色 */
+      padding: 2px 0;
+    }
+
+    /* 🎨 假別網底標籤（與點名介面色彩同步） */
+    .type-badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-事假 { background-color: #fef9c3; color: #854d0e; }
+    .badge-病假 { background-color: #e0f2fe; color: #075985; }
+    .badge-公假 { background-color: #f3e8ff; color: #6b21a8; }
+    .badge-生理假 { background-color: #fce7f3; color: #9d174d; }
+    .badge-曠課 { background-color: #fee2e2; color: #991b1b; }
+    .badge-喪假 { background-color: #f1f5f9; color: #334155; }
+    .badge-不可抗力假 { background-color: #ffedd5; color: #9a3412; }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>全校即時缺曠統計看板</h1>
-  <div class="meta-info">
-    日期：<span id="currentDate">載入中...</span> | 
-    最後更新：<span id="lastUpdated">--:--:--</span>
-  </div>
+  <div class="title">🏫 全校缺曠即時動態看板</div>
+  <div id="pageInfo" class="page-info">載入中...</div>
+  <div id="clock" class="clock">00:00:00</div>
 </div>
 
-<div class="grid-container" id="dashboard">
-  <div class="loading-full">正在連線取得即時缺曠看板...</div>
-</div>
+<div id="gridContainer" class="dashboard-grid"></div>
 
 <script>
-  // ⚠️ 請替換為你的 GAS 部署網址 ⚠️
+  // ⚠️ 請替換為你的 Google Apps Script Web App URL
   const GAS_URL = "https://script.google.com/macros/s/AKfycbyEy9Ju1JMJoBWC4PbJ1rT9ODeNdpvySF_Gqh0CGvkuEOMm9fpUAXqOibLNnq7NhWl7/exec";
 
-  // 全域 JSONP 回呼函數
-  window.handleDashboardData = function(response) {
-    console.log("看板收到資料:", response);
+  // ⚙️ 輪播與更新設定
+  const PAGE_ROTATE_MS = 10000; // 每頁停留 10 秒
+  const DATA_FETCH_MS = 10000;  // 每 10 秒背景同步最新缺曠資料
+
+  // 定義三個年級輪播頁面
+  const gradePages = [
+    { title: "七年級", pattern: /^(7|七)/ },
+    { title: "八年級", pattern: /^(8|八)/ },
+    { title: "九年級", pattern: /^(9|九)/ }
+  ];
+
+  let currentRecords = {};
+  let currentGradeIndex = 0;
+
+  // 1. 即時時鐘
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('zh-TW', { hour12: false });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // 2. 頁面初始化
+  window.onload = function() {
+    fetchDashboardData();
+    setInterval(fetchDashboardData, DATA_FETCH_MS); // 每 10 秒背景更新資料
+    setInterval(nextGradePage, PAGE_ROTATE_MS);      // 每 10 秒自動切換年級頁面
+  };
+
+  // 3. 向 GAS 抓取最新看板資料
+  function fetchDashboardData() {
+    const script = document.createElement('script');
+    script.src = `${GAS_URL}?action=getDashboardData&callback=renderDashboard`;
+    document.body.appendChild(script);
+  }
+
+  // 4. 接收資料並渲染目前年級
+  function renderDashboard(response) {
+    if (response.status === 'success') {
+      currentRecords = response.data;
+      displayGradePage();
+    }
+  }
+
+  // 5. 切換至下一個年級頁面
+  function nextGradePage() {
+    currentGradeIndex = (currentGradeIndex + 1) % gradePages.length;
+    displayGradePage();
+  }
+
+  // 6. 渲染指定年級的所有班級卡片
+  function displayGradePage() {
+    const container = document.getElementById('gridContainer');
+    const pageInfo = document.getElementById('pageInfo');
     
-    document.getElementById('currentDate').innerText = response.date || '--';
-    document.getElementById('lastUpdated').innerText = response.lastUpdated || new Date().toLocaleTimeString('zh-TW');
-
-    const container = document.getElementById('dashboard');
     container.innerHTML = '';
+    const currentGrade = gradePages[currentGradeIndex];
+    pageInfo.textContent = `顯示中：${currentGrade.title}`;
 
-    const summary = response.data || {};
-    const classNames = Object.keys(summary);
+    // 篩選出屬於當年前級的班級並排序
+    const allClasses = Object.keys(currentRecords).sort();
+    const gradeClasses = allClasses.filter(className => currentGrade.pattern.test(className));
 
-    if (classNames.length === 0) {
-      container.innerHTML = '<div class="loading-full">目前尚無任何班級缺曠紀錄（全員到齊）</div>';
+    if (gradeClasses.length === 0) {
+      container.innerHTML = `<div style="font-size:20px; color:#94a3b8; grid-column: 1/-1; text-align:center; padding-top:50px;">尚無 ${currentGrade.title} 班級資料</div>`;
       return;
     }
 
-    classNames.forEach(className => {
-      const records = summary[className] || [];
+    gradeClasses.forEach(className => {
+      const records = currentRecords[className] || [];
       const card = document.createElement('div');
       card.className = 'class-card';
 
-      let contentHtml = '';
+      let contentHtml = `<div class="class-title">${className}</div>`;
+
       if (records.length === 0) {
-        contentHtml = `
-          <div class="class-title">${className} 班 <span class="badge-all">全員到齊</span></div>
-          <div class="all-present">✓ 無缺曠紀錄</div>
+        // 全班到齊：顯示綠色勾勾
+        contentHtml += `
+          <div class="all-present">
+            <span>✅</span> 全班到齊
+          </div>
         `;
       } else {
-        contentHtml = `
-          <div class="class-title">${className} 班 <span class="badge-absent">缺曠 ${records.length} 人</span></div>
-          <ul class="student-list">
-        `;
+        // 顯示缺曠學生：名字無網底、只有假別帶有色彩網底
+        contentHtml += `<div class="absent-list">`;
         records.forEach(item => {
           contentHtml += `
-            <li class="student-item">
+            <div class="student-item">
               <span>${item.seat}號 ${item.name}</span>
-              <span class="type-tag tag-${item.type}">${item.type}</span>
-            </li>
+              <span class="type-badge badge-${item.type}">${item.type}</span>
+            </div>
           `;
         });
-        contentHtml += `</ul>`;
+        contentHtml += `</div>`;
       }
 
       card.innerHTML = contentHtml;
       container.appendChild(card);
     });
-  };
-
-  function refreshDashboard() {
-    const oldScript = document.getElementById('dashboard-script');
-    if (oldScript) oldScript.remove();
-
-    const script = document.createElement('script');
-    script.id = 'dashboard-script';
-    // 呼叫 doGet 預設模式（取得今日缺曠）
-    script.src = `${GAS_URL}?callback=handleDashboardData&_=${new Date().getTime()}`;
-    document.body.appendChild(script);
   }
-
-  // 立即載入
-  refreshDashboard();
-
-  // 每 10 秒自動重新整理
-  setInterval(refreshDashboard, 10000);
 </script>
 
 </body>
