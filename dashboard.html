@@ -1,9 +1,26 @@
+這個情境非常真實！在學校日常中，常常會有「大部隊去比賽/活動，但同時有人留在學校請病假/事假」的複合狀況。
+
+原先的邏輯只要缺曠總人數超過 18 人，就會整張卡片收合為「全班公假」摘要，導致那 2 個病假與事假的學生被隱藏了。
+
+💡 最佳解決方案：分流顯示（全班公假標籤 + 特殊請假清單）
+當一個班級缺曠人數高達 18 人以上，且主要假別是公假時，我們將卡片切分成兩個區塊：
+
+頂部公假摘要：顯示顯眼的 🚌 全班公假/校外活動（共 23 人）。
+
+下方細節清單：特別把 非公假（如病假、事假、曠課等） 的學生姓名與座號列出來！
+
+這樣既保留了高效率的摘要，又能精確掌握誰是「另外請假」或「留在學校/在家」的學生！
+
+📄 請直接替換整份 dashboard.html
+請將以下完整的程式碼複製並覆蓋你的 dashboard.html：
+
+HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全校缺曠即時動態看板 (智慧彈性版)</title>
+  <title>全校缺曠即時動態看板 (智慧分流版)</title>
   <style>
     * { box-sizing: border-box; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
     body {
@@ -50,10 +67,10 @@
       box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
 
-    /* 🌟 人數過多 (超過 4 人) 時自動跨兩欄變寬 */
+    /* 人數較多或需要顯示公假摘要時，卡片跨兩欄 */
     .class-card.wide-card {
       grid-column: span 2; 
-      border-color: #0284c7; /* 給予深藍邊框強調 */
+      border-color: #0284c7;
     }
 
     .class-title {
@@ -83,7 +100,7 @@
       gap: 6px;
     }
 
-    /* 🌟 多欄學生清單 (5 人以上) */
+    /* 多欄學生清單 (5 人以上) */
     .absent-list-multi {
       display: grid;
       gap: 6px 14px;
@@ -116,6 +133,19 @@
     .badge-曠課 { background-color: #fee2e2; color: #991b1b; }
     .badge-喪假 { background-color: #f1f5f9; color: #334155; }
     .badge-不可抗力假 { background-color: #ffedd5; color: #9a3412; }
+
+    /* 大人數卡片中的其他假別提示區塊 */
+    .other-absent-box {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #475569;
+    }
+    .other-absent-title {
+      font-size: 13px;
+      color: #f43f5e;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -182,7 +212,7 @@
     displayGradePage();
   }
 
-  // 6. 渲染指定年級的班級卡片 (含人數極多與全班公假自動摘要)
+  // 6. 渲染指定年級的班級卡片
   function displayGradePage() {
     const container = document.getElementById('gridContainer');
     const pageInfo = document.getElementById('pageInfo');
@@ -215,37 +245,54 @@
           </div>
         `;
       } 
-      // 情況 2：極高人數缺曠 / 全班公假 (超過 18 人) -> 自動啟動「摘要大卡片」
+      // 情況 2：高人數缺曠（> 18 人）且「公假居多」 -> 啟動「公假摘要 + 個人假別細節」模式
       else if (totalAbsent > 18) {
-        card.className = 'class-card wide-card';
-        
-        // 統計主要假別
-        const typeCounts = {};
-        records.forEach(item => {
-          typeCounts[item.type] = (typeCounts[item.type] || 0) + 1;
-        });
-        
-        // 找出比例最高的假別
-        let mainType = Object.keys(typeCounts).reduce((a, b) => typeCounts[a] > typeCounts[b] ? a : b);
-        let isAllOfficial = mainType === '公假' && typeCounts['公假'] >= (totalAbsent * 0.8);
+        const officialRecords = records.filter(item => item.type === '公假');
+        const otherRecords = records.filter(item => item.type !== '公假');
 
-        contentHtml += `
-          <div style="text-align: center; padding: 10px 0;">
-            <div style="font-size: 36px; margin-bottom: 5px;">${isAllOfficial ? '🚌' : '⚠️'}</div>
-            <div style="font-size: 22px; font-weight: 900; color: ${isAllOfficial ? '#c084fc' : '#f43f5e'};">
-              ${isAllOfficial ? '全班公假 / 校外活動' : '全班多數缺曠'}
+        // 如果超過半數以上是公假，啟動智慧分流顯示
+        if (officialRecords.length >= (totalAbsent * 0.5)) {
+          card.className = 'class-card wide-card';
+          
+          contentHtml += `
+            <div style="background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; border-radius: 8px; padding: 8px; text-align: center; margin-bottom: 8px;">
+              <span style="font-size: 18px; font-weight: 900; color: #c084fc;">🚌 校外活動 / 公假 (共 ${officialRecords.length} 人)</span>
             </div>
-            <div style="font-size: 16px; color: #94a3b8; margin-top: 6px; font-weight: bold;">
-              共 ${totalAbsent} 人未到校 (${mainType} ${typeCounts[mainType]} 人)
-            </div>
-          </div>
-        `;
+          `;
+
+          // 如果有「公假以外」的學生 (如病假、事假、曠課)，特別列出姓名！
+          if (otherRecords.length > 0) {
+            contentHtml += `<div class="other-absent-box">`;
+            contentHtml += `<div class="other-absent-title">⚠️ 其他假別名單 (${otherRecords.length} 人)：</div>`;
+            contentHtml += `<div class="absent-list-multi" style="grid-template-columns: repeat(2, 1fr);">`;
+            otherRecords.forEach(item => {
+              contentHtml += `
+                <div class="student-item" style="font-size: 15px;">
+                  <span>${item.seat}號 ${item.name}</span>
+                  <span class="type-badge badge-${item.type}">${item.type}</span>
+                </div>
+              `;
+            });
+            contentHtml += `</div></div>`;
+          }
+        } else {
+          // 如果高人數請假但不是以公假為主（例如流行性感冒），開啟 3 欄全部列出
+          card.className = 'class-card wide-card';
+          contentHtml += `<div class="absent-list-multi" style="grid-template-columns: repeat(3, 1fr);">`;
+          records.forEach(item => {
+            contentHtml += `
+              <div class="student-item" style="font-size: 13px;">
+                <span>${item.seat}號 ${item.name}</span>
+                <span class="type-badge badge-${item.type}">${item.type}</span>
+              </div>
+            `;
+          });
+          contentHtml += `</div>`;
+        }
       } 
-      // 情況 3：人數較多 (5 ~ 18 人) -> 跨雙欄，使用密集多欄顯示
+      // 情況 3：中高度缺曠 (5 ~ 18 人) -> 跨雙欄，依人數開 2 欄或 3 欄
       else if (totalAbsent > 4) {
         card.className = 'class-card wide-card';
-        
-        // 人數 > 10 人開 3 欄；5~10 人開 2 欄
         const gridCols = totalAbsent > 10 ? 'grid-template-columns: repeat(3, 1fr);' : 'grid-template-columns: repeat(2, 1fr);';
         
         contentHtml += `<div class="absent-list-multi" style="${gridCols}">`;
