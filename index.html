@@ -13,7 +13,8 @@
     .form-group { margin-bottom: 20px; }
     label { font-weight: bold; display: block; margin-bottom: 8px; color: #334155; font-size: 16px; }
     select.class-select { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #cbd5e1; font-size: 18px; font-weight: bold; background-color: #fff; }
-    
+    select.class-select:disabled { background-color: #f1f5f9; color: #64748b; cursor: not-allowed; border-color: #e2e8f0; }
+
     .status-bar { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 15px; font-weight: 600; display: none; }
     .loading { text-align: center; color: #64748b; margin: 20px 0; font-size: 16px; }
 
@@ -153,7 +154,7 @@
     document.body.appendChild(script);
   }
 
-  // 2. 初始化班級選單
+  // 2. 初始化班級選單（包含個資保護網址鎖定）
   function initClassOptions(response) {
     document.getElementById('loadingText').style.display = 'none';
     
@@ -161,6 +162,10 @@
       allStudentsData = response.students;
       const classSelect = document.getElementById('classSelect');
       
+      // 🔍 檢查網址有沒有帶班級參數 (例如 ?class=701)
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetClass = urlParams.get('class');
+
       const classNames = Object.keys(allStudentsData).sort();
       classNames.forEach(className => {
         const option = document.createElement('option');
@@ -168,6 +173,14 @@
         option.textContent = className;
         classSelect.appendChild(option);
       });
+
+      // 🔒 個資保護邏輯：如果網址有帶班級參數，自動鎖定選單
+      if (targetClass && allStudentsData[targetClass]) {
+        classSelect.value = targetClass;      // 自動切換到該班
+        classSelect.disabled = true;          // 鎖定下拉選單，防止切換看別班名單
+        onClassChange(targetClass);           // 自動讀取該班學生棋盤與紀錄
+      }
+
     } else {
       alert("載入名單失敗：" + response.message);
     }
