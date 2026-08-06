@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全校缺曠即時動態看板 (年級分頁輪播版)</title>
+  <title>全校缺曠即時動態看板 (智慧彈性版)</title>
   <style>
     * { box-sizing: border-box; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
     body {
@@ -41,13 +41,19 @@
       align-content: start;
     }
 
-    /* 班級卡片 */
+    /* 基本班級卡片 */
     .class-card {
       background: #1e293b;
       border-radius: 10px;
       padding: 12px 14px;
       border: 2px solid #334155;
       box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+
+    /* 🌟 人數過多 (超過 4 人) 時自動跨兩欄變寬 */
+    .class-card.wide-card {
+      grid-column: span 2; 
+      border-color: #0284c7; /* 給予深藍邊框強調 */
     }
 
     .class-title {
@@ -70,25 +76,31 @@
       margin-top: 6px;
     }
 
-    /* 缺曠學生列表 Container */
+    /* 單欄學生清單 (預設 1~4 人) */
     .absent-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
-    /* 單位學生整條：名字純文字、只有假別標籤有背景色彩 */
+    /* 🌟 多欄學生清單 (5 人以上) */
+    .absent-list-multi {
+      display: grid;
+      gap: 6px 14px;
+    }
+
+    /* 單位學生整條：名字純文字、假別色彩網底 */
     .student-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 16px;
       font-weight: bold;
-      color: #e2e8f0; /* 姓名純文字顏色 */
+      color: #e2e8f0;
       padding: 2px 0;
     }
 
-    /* 🎨 假別網底標籤（與點名介面色彩同步） */
+    /* 🎨 假別網底標籤 (與點名介面色彩 100% 同步) */
     .type-badge {
       padding: 3px 8px;
       border-radius: 6px;
@@ -121,10 +133,10 @@
   const GAS_URL = "https://script.google.com/macros/s/AKfycbyEy9Ju1JMJoBWC4PbJ1rT9ODeNdpvySF_Gqh0CGvkuEOMm9fpUAXqOibLNnq7NhWl7/exec";
 
   // ⚙️ 輪播與更新設定
-  const PAGE_ROTATE_MS = 10000; // 每頁停留 10 秒
+  const PAGE_ROTATE_MS = 10000; // 每頁輪播停留 10 秒
   const DATA_FETCH_MS = 10000;  // 每 10 秒背景同步最新缺曠資料
 
-  // 定義三個年級輪播頁面
+  // 年級分頁設定
   const gradePages = [
     { title: "七年級", pattern: /^(7|七)/ },
     { title: "八年級", pattern: /^(8|八)/ },
@@ -145,7 +157,7 @@
   // 2. 頁面初始化
   window.onload = function() {
     fetchDashboardData();
-    setInterval(fetchDashboardData, DATA_FETCH_MS); // 每 10 秒背景更新資料
+    setInterval(fetchDashboardData, DATA_FETCH_MS); // 每 10 秒背景同步最新資料
     setInterval(nextGradePage, PAGE_ROTATE_MS);      // 每 10 秒自動切換年級頁面
   };
 
@@ -156,7 +168,7 @@
     document.body.appendChild(script);
   }
 
-  // 4. 接收資料並渲染目前年級
+  // 4. 接收資料
   function renderDashboard(response) {
     if (response.status === 'success') {
       currentRecords = response.data;
@@ -170,7 +182,7 @@
     displayGradePage();
   }
 
-  // 6. 渲染指定年級的所有班級卡片
+  // 6. 渲染指定年級的班級卡片 (含人數極多與全班公假自動摘要)
   function displayGradePage() {
     const container = document.getElementById('gridContainer');
     const pageInfo = document.getElementById('pageInfo');
@@ -179,7 +191,6 @@
     const currentGrade = gradePages[currentGradeIndex];
     pageInfo.textContent = `顯示中：${currentGrade.title}`;
 
-    // 篩選出屬於當年前級的班級並排序
     const allClasses = Object.keys(currentRecords).sort();
     const gradeClasses = allClasses.filter(className => currentGrade.pattern.test(className));
 
@@ -191,19 +202,66 @@
     gradeClasses.forEach(className => {
       const records = currentRecords[className] || [];
       const card = document.createElement('div');
-      card.className = 'class-card';
+      const totalAbsent = records.length;
 
       let contentHtml = `<div class="class-title">${className}</div>`;
 
-      if (records.length === 0) {
-        // 全班到齊：顯示綠色勾勾
+      // 情況 1：全班到齊
+      if (totalAbsent === 0) {
+        card.className = 'class-card';
         contentHtml += `
           <div class="all-present">
             <span>✅</span> 全班到齊
           </div>
         `;
-      } else {
-        // 顯示缺曠學生：名字無網底、只有假別帶有色彩網底
+      } 
+      // 情況 2：極高人數缺曠 / 全班公假 (超過 18 人) -> 自動啟動「摘要大卡片」
+      else if (totalAbsent > 18) {
+        card.className = 'class-card wide-card';
+        
+        // 統計主要假別
+        const typeCounts = {};
+        records.forEach(item => {
+          typeCounts[item.type] = (typeCounts[item.type] || 0) + 1;
+        });
+        
+        // 找出比例最高的假別
+        let mainType = Object.keys(typeCounts).reduce((a, b) => typeCounts[a] > typeCounts[b] ? a : b);
+        let isAllOfficial = mainType === '公假' && typeCounts['公假'] >= (totalAbsent * 0.8);
+
+        contentHtml += `
+          <div style="text-align: center; padding: 10px 0;">
+            <div style="font-size: 36px; margin-bottom: 5px;">${isAllOfficial ? '🚌' : '⚠️'}</div>
+            <div style="font-size: 22px; font-weight: 900; color: ${isAllOfficial ? '#c084fc' : '#f43f5e'};">
+              ${isAllOfficial ? '全班公假 / 校外活動' : '全班多數缺曠'}
+            </div>
+            <div style="font-size: 16px; color: #94a3b8; margin-top: 6px; font-weight: bold;">
+              共 ${totalAbsent} 人未到校 (${mainType} ${typeCounts[mainType]} 人)
+            </div>
+          </div>
+        `;
+      } 
+      // 情況 3：人數較多 (5 ~ 18 人) -> 跨雙欄，使用密集多欄顯示
+      else if (totalAbsent > 4) {
+        card.className = 'class-card wide-card';
+        
+        // 人數 > 10 人開 3 欄；5~10 人開 2 欄
+        const gridCols = totalAbsent > 10 ? 'grid-template-columns: repeat(3, 1fr);' : 'grid-template-columns: repeat(2, 1fr);';
+        
+        contentHtml += `<div class="absent-list-multi" style="${gridCols}">`;
+        records.forEach(item => {
+          contentHtml += `
+            <div class="student-item" style="font-size: ${totalAbsent > 10 ? '14px' : '16px'};">
+              <span>${item.seat}號 ${item.name}</span>
+              <span class="type-badge badge-${item.type}">${item.type}</span>
+            </div>
+          `;
+        });
+        contentHtml += `</div>`;
+      } 
+      // 情況 4：少數人缺曠 (1 ~ 4 人) -> 標準單欄
+      else {
+        card.className = 'class-card';
         contentHtml += `<div class="absent-list">`;
         records.forEach(item => {
           contentHtml += `
