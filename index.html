@@ -1,206 +1,221 @@
-HTML
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>平板班級點名系統</title>
+  <title>線上點名系統</title>
   <style>
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #f1f5f9; padding: 15px; margin: 0; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 600px; margin: 0 auto; }
-    h2 { margin-top: 0; color: #1e293b; text-align: center; }
+    * { box-sizing: border-box; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    body { background-color: #f4f6f9; margin: 0; padding: 15px; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h2 { text-align: center; color: #2c3e50; margin-top: 0; }
     .form-group { margin-bottom: 20px; }
-    label { font-weight: bold; display: block; margin-bottom: 8px; color: #334155; }
-    select, button { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; }
-    
-    .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 10px; margin-top: 10px; }
-    
-    /* 學生卡片基礎樣式 */
-    .student-card { border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; background: #ffffff; cursor: pointer; transition: all 0.2s; }
-    .student-name { font-weight: bold; margin-bottom: 6px; color: #0f172a; font-size: 16px; }
-    .type-select { width: 100%; padding: 5px; font-size: 14px; border-radius: 6px; display: none; font-weight: bold; }
-
-    /* 各假別選取時的顏色樣式 */
-    .student-card.selected { border-width: 2px; }
-    .student-card.selected .type-select { display: block; }
-
-    .student-card.type-曠課 { border-color: #dc2626; background: #fef2f2; }
-    .student-card.type-曠課 .type-select { border: 1px solid #dc2626; color: #dc2626; }
-
-    .student-card.type-病假 { border-color: #2563eb; background: #eff6ff; }
-    .student-card.type-病假 .type-select { border: 1px solid #2563eb; color: #2563eb; }
-
-    .student-card.type-事假 { border-color: #d97706; background: #fffbeb; }
-    .student-card.type-事假 .type-select { border: 1px solid #d97706; color: #d97706; }
-
-    .student-card.type-喪假 { border-color: #475569; background: #f8fafc; }
-    .student-card.type-喪假 .type-select { border: 1px solid #475569; color: #475569; }
-
-    .student-card.type-公假 { border-color: #7c3aed; background: #f5f3ff; }
-    .student-card.type-公假 .type-select { border: 1px solid #7c3aed; color: #7c3aed; }
-
-    .student-card.type-生理假 { border-color: #db2777; background: #fdf2f8; }
-    .student-card.type-生理假 .type-select { border: 1px solid #db2777; color: #db2777; }
-
-    .student-card.type-不可抗力假 { border-color: #0d9488; background: #f0fdf4; }
-    .student-card.type-不可抗力假 .type-select { border: 1px solid #0d9488; color: #0d9488; }
-    
-    .btn-submit { background: #2563eb; color: white; border: none; margin-top: 20px; font-weight: bold; cursor: pointer; font-size: 18px; }
-    .btn-submit:disabled { background: #94a3b8; }
-    .loading-msg { text-align: center; color: #64748b; padding: 20px 0; grid-column: 1 / -1; }
+    label { font-weight: bold; display: block; margin-bottom: 8px; color: #34495e; }
+    select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; }
+    .status-bar { padding: 10px; background: #e8f4fd; border-left: 4px solid #3498db; border-radius: 4px; margin-bottom: 15px; font-size: 14px; color: #2980b9; display: none; }
+    .student-list { margin-top: 15px; }
+    .student-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+    .student-info { font-size: 16px; font-weight: 500; color: #2c3e50; }
+    .type-select { width: 120px; padding: 6px; border-radius: 4px; border: 1px solid #bdc3c7; font-size: 14px; }
+    .btn-submit { width: 100%; padding: 14px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: background-color 0.2s; }
+    .btn-submit:hover { background-color: #219653; }
+    .btn-submit:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+    .loading { text-align: center; color: #7f8c8d; margin: 20px 0; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>班級點名系統</h2>
-  
+<div class="container">
+  <h2>全校線上點名系統</h2>
+
+  <script>
+    // ⚠️ 請在此處貼上你的 Google Apps Script 部署網址（Web App URL）
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyEy9Ju1JMJoBWC4PbJ1rT9ODeNdpvySF_Gqh0CGvkuEOMm9fpUAXqOibLNnq7NhWl7/exec";
+  </script>
+
   <div class="form-group">
-    <label for="classSelect">選擇班級</label>
-    <select id="classSelect" onchange="renderStudents()">
-      <option value="">-- 載入名單中 --</option>
+    <label for="classSelect">請選擇班級：</label>
+    <select id="classSelect" onchange="onClassChange(this.value)">
+      <option value="">-- 請選擇 --</option>
     </select>
   </div>
 
-  <div class="form-group">
-    <label>點擊學生登記缺曠：</label>
-    <div id="studentContainer" class="student-grid">
-      <div class="loading-msg">正在連線取得學生名單...</div>
-    </div>
-  </div>
+  <div id="statusBar" class="status-bar"></div>
+  <div id="loadingText" class="loading">正在載入學生名單...</div>
 
-  <button type="button" class="btn-submit" id="submitBtn" onclick="submitData()">送出點名紀錄</button>
+  <div id="studentContainer" class="student-list"></div>
+
+  <button id="submitBtn" class="btn-submit" onclick="submitAttendance()" style="display:none;">送出點名紀錄</button>
 </div>
 
 <script>
-  // ⚠️ 請替換為你的 GAS 部署網址 ⚠️
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbyEy9Ju1JMJoBWC4PbJ1rT9ODeNdpvySF_Gqh0CGvkuEOMm9fpUAXqOibLNnq7NhWl7/exec";
-
-  const LEAVE_TYPES = ["曠課", "病假", "事假", "喪假", "公假", "生理假", "不可抗力假"];
   let allStudentsData = {};
+  let currentClassStudents = [];
 
-  function loadStudentData() {
+  // 1. 初始化頁面：載入全校學生名冊
+  window.onload = function() {
+    fetchStudents();
+  };
+
+  function fetchStudents() {
     const script = document.createElement('script');
-    script.src = `${GAS_URL}?action=getStudents&callback=handleStudentData&_=${new Date().getTime()}`;
+    script.src = `${GAS_URL}?action=getStudents&callback=initClassOptions`;
     document.body.appendChild(script);
   }
 
-  window.handleStudentData = function(response) {
-    const studentsObj = response.students || response.data || response;
-
-    if (studentsObj && Object.keys(studentsObj).length > 0) {
-      allStudentsData = studentsObj;
+  // 2. 初始化班級選單
+  function initClassOptions(response) {
+    document.getElementById('loadingText').style.display = 'none';
+    
+    if (response.status === 'success') {
+      allStudentsData = response.students;
       const classSelect = document.getElementById('classSelect');
-      classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
-
-      Object.keys(allStudentsData).forEach(className => {
-        if (Array.isArray(allStudentsData[className])) {
-          const option = document.createElement('option');
-          option.value = className;
-          option.innerText = `${className} 班`;
-          classSelect.appendChild(option);
-        }
+      
+      const classNames = Object.keys(allStudentsData).sort();
+      classNames.forEach(className => {
+        const option = document.createElement('option');
+        option.value = className;
+        option.textContent = className;
+        classSelect.appendChild(option);
       });
-
-      document.getElementById('studentContainer').innerHTML = '<div class="loading-msg">請從上方選單【選擇班級】</div>';
-    }
-  };
-
-  function updateCardColor(card, type) {
-    // 移除舊的假別 class
-    LEAVE_TYPES.forEach(t => card.classList.remove(`type-${t}`));
-    if (card.classList.contains('selected')) {
-      card.classList.add(`type-${type}`);
+    } else {
+      alert("載入名單失敗：" + response.message);
     }
   }
 
-  function renderStudents() {
-    const className = document.getElementById('classSelect').value;
+  // 3. 切換班級時觸發：渲染學生名單並自動查詢「當天最新紀錄」
+  function onClassChange(className) {
     const container = document.getElementById('studentContainer');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBar = document.getElementById('statusBar');
+    
     container.innerHTML = '';
+    statusBar.style.display = 'none';
 
     if (!className || !allStudentsData[className]) {
-      container.innerHTML = '<div class="loading-msg">請選擇班級</div>';
+      submitBtn.style.display = 'none';
       return;
     }
 
-    const students = allStudentsData[className];
-    students.forEach(student => {
-      const card = document.createElement('div');
-      card.className = 'student-card';
-      card.dataset.seat = student.seat;
-      card.dataset.name = student.name;
+    currentClassStudents = allStudentsData[className];
 
-      let typeOptions = LEAVE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
-
-      card.innerHTML = `
-        <div class="student-name">${student.seat}號 ${student.name}</div>
-        <select class="type-select" onclick="event.stopPropagation()">
-          ${typeOptions}
+    // 渲染學生名冊列表 (預設全部為到齊)
+    currentClassStudents.forEach(student => {
+      const row = document.createElement('div');
+      row.className = 'student-item';
+      row.innerHTML = `
+        <div class="student-info">${student.seat} 號 - ${student.name}</div>
+        <select class="type-select" data-seat="${student.seat}" data-name="${student.name}">
+          <option value="到齊">出席/到齊</option>
+          <option value="事假">事假</option>
+          <option value="病假">病假</option>
+          <option value="公假">公假</option>
+          <option value="喪假">喪假</option>
+          <option value="曠課">曠課</option>
         </select>
       `;
-
-      const selectEl = card.querySelector('.type-select');
-
-      // 點擊卡片切換選取狀態
-      card.addEventListener('click', function() {
-        this.classList.toggle('selected');
-        updateCardColor(this, selectEl.value);
-      });
-
-      // 切換假別時即時變更色彩
-      selectEl.addEventListener('change', function() {
-        updateCardColor(card, this.value);
-      });
-
-      container.appendChild(card);
+      container.appendChild(row);
     });
+
+    submitBtn.style.display = 'block';
+
+    // 關鍵亮點：發送 API 向 GAS 查詢該班今天是否有既有點名紀錄或學務處先行登記紀錄
+    fetchPreviousRecord(className);
   }
 
-  async function submitData() {
+  // 4. 向後端查詢歷史紀錄
+  function fetchPreviousRecord(className) {
+    const statusBar = document.getElementById('statusBar');
+    statusBar.style.display = 'block';
+    statusBar.textContent = "🔍 正在確認今日歷史紀錄...";
+
+    const script = document.createElement('script');
+    script.src = `${GAS_URL}?action=getClassRecord&className=${encodeURIComponent(className)}&callback=applyPreviousRecord`;
+    document.body.appendChild(script);
+  }
+
+  // 5. 將後端傳回的歷史紀錄自動帶入下拉選單
+  function applyPreviousRecord(response) {
+    const statusBar = document.getElementById('statusBar');
+    
+    if (response.status === 'success' && response.records) {
+      if (response.records.length > 0) {
+        // 依次帶入假別
+        response.records.forEach(item => {
+          const selectElem = document.querySelector(`select[data-seat="${item.seat}"]`);
+          if (selectElem) {
+            selectElem.value = item.type;
+          }
+        });
+        statusBar.style.background = "#e8f4fd";
+        statusBar.style.color = "#2980b9";
+        statusBar.innerHTML = "ℹ️ 已載入本日最新點名紀錄（含學務處登記），可直接修改後重新送出。";
+      } else {
+        statusBar.style.background = "#eef9f2";
+        statusBar.style.color = "#27ae60";
+        statusBar.innerHTML = "✨ 本日尚未有缺曠紀錄（預設全員到齊）。";
+      }
+    } else {
+      statusBar.style.display = 'none';
+    }
+  }
+
+  // 6. 送出點名資料
+  function submitAttendance() {
     const className = document.getElementById('classSelect').value;
-    if (!className) {
-      alert("請先選擇班級！");
+    const selects = document.querySelectorAll('.type-select');
+    const submitBtn = document.getElementById('submitBtn');
+
+    const records = [];
+
+    selects.forEach(select => {
+      const type = select.value;
+      if (type !== '到齊') {
+        records.push({
+          seat: select.getAttribute('data-seat'),
+          name: select.getAttribute('data-name'),
+          type: type
+        });
+      }
+    });
+
+    const payload = {
+      className: className,
+      records: records
+    };
+
+    if (!confirm(`確定要送出 ${className} 的點名紀錄嗎？\n(缺曠人數：${records.length} 人)`)) {
       return;
     }
 
-    const selectedCards = document.querySelectorAll('.student-card.selected');
-    const records = [];
+    submitBtn.disabled = true;
+    submitBtn.textContent = "傳送中...";
 
-    selectedCards.forEach(card => {
-      const seat = card.dataset.seat;
-      const name = card.dataset.name;
-      const type = card.querySelector('.type-select').value;
-      records.push({ seat, name, type });
+    // 以 POST 方式傳送 JSON 資料
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "送出點名紀錄";
+
+      if (data.status === 'success') {
+        alert(`${className} 點名資料送出成功！`);
+        // 重新讀取帶入最新狀態
+        fetchPreviousRecord(className);
+      } else {
+        alert("送出失敗：" + data.message);
+      }
+    })
+    .catch(err => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "送出點名紀錄";
+      alert("網路傳送錯誤，請稍後再試：" + err);
     });
-
-    if (records.length === 0) {
-      if (!confirm(`【${className} 班】未選取任何缺曠學生，確定要送出（全員到齊）嗎？`)) return;
-    }
-
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.innerText = "提交中...";
-
-    try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ className, records })
-      });
-
-      alert("點名紀錄送出成功！");
-      renderStudents();
-    } catch (err) {
-      alert("送出失敗：" + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.innerText = "送出點名紀錄";
-    }
   }
-
-  loadStudentData();
 </script>
 
 </body>
